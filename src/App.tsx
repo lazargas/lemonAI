@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
 import './App.css'
 import { Navbar } from './components/Navbar'
 import { users } from './data/users'
@@ -104,6 +104,20 @@ function App() {
               transition={{ duration: 0.4 }}
               className={`absolute ${cardPositions[i]} w-18 h-18 lg:w-24 lg:h-24 xl:w-28 xl:h-28 bg-white rounded-lg shadow border border-gray-300 flex flex-col items-center justify-center text-center p-1 ${!selectedUser ? 'cursor-pointer' : ''}`}
             >
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-8 h-8 lg:w-10 lg:h-10 xl:w-12 xl:h-12 rounded-full object-cover"
+                  onError={(e: SyntheticEvent<HTMLImageElement>) => {
+                    e.currentTarget.style.display = 'none'
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                  }}
+                />
+              ) : null}
+              <div className={`w-8 h-8 lg:w-10 lg:h-10 xl:w-12 xl:h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs lg:text-sm font-semibold ${user.avatar ? 'hidden' : ''}`}>
+                {user.name.split(' ').map(n => n[0]).join('')}
+              </div>
               <span className="text-[10px] lg:text-xs font-medium text-gray-700 truncate w-full">{user.name}</span>
               <span className="text-[8px] lg:text-[10px] text-gray-400 truncate w-full">{user.jobTitle}</span>
             </motion.div>
