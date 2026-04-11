@@ -3,6 +3,12 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
+
+@font-face {
+  font-family: gilroy-bold;
+  src: url('./assets/fonts/Gilroy-Bold.ttf');
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -119,6 +125,7 @@
 
 @layer base {
   * {
+    font-family: gilroy-bold;
     @apply border-border outline-ring/50;
     }
   body {
