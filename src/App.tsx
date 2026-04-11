@@ -4,7 +4,7 @@ import { Navbar } from './components/Navbar'
 import { users } from './data/users'
 import type { User } from './data/users'
 import { motion, AnimatePresence } from 'motion/react'
-import { XIcon, FileTextIcon, RefreshCwIcon } from 'lucide-react'
+import { XIcon, RefreshCwIcon } from 'lucide-react'
 import { Progress, ProgressValue } from './components/ui/progress'
 import { Button } from './components/ui/button'
 import { listProjects, ping } from './api/client'
@@ -166,7 +166,10 @@ function App() {
 
   return (
     <div className="h-screen overflow-hidden">
-      <Navbar />
+      <Navbar
+        onLeadershipDashboard={() => setShowSummary(prev => !prev)}
+        isLeadershipView={showSummary}
+      />
       <div
         ref={containerRef}
         className="relative flex items-center justify-center h-[calc(100vh-73px)] bg-white overflow-hidden"
@@ -270,17 +273,6 @@ function App() {
           )}
         </AnimatePresence>
 
-        {/* Summary button */}
-        {!selectedUser && !showSummary && (
-          <Button
-            onClick={() => setShowSummary(true)}
-            className="absolute bottom-6 left-6 z-10"
-          >
-            <FileTextIcon className="size-4 mr-2" />
-            Summary
-          </Button>
-        )}
-
         {/* Summary page */}
         <AnimatePresence>
           {showSummary && (
@@ -338,14 +330,14 @@ function App() {
 
               {/* Projects grid */}
               {!projectsLoading && !projectsError && (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   {apiProjects.map(p => {
                     const status = healthToStatus[p.health] ?? 'on-track'
                     return (
                       <div
                         key={p.project_id}
                         onClick={() => setSelectedProject(p)}
-                        className={`rounded-xl border p-4 shadow-sm flex flex-col gap-3 cursor-pointer transition-shadow hover:shadow-md ${statusStyles[status]}`}
+                        className={`rounded-xl border p-4 shadow-sm flex flex-col gap-3 cursor-pointer transition-shadow hover:shadow-md min-h-[200px] ${statusStyles[status]}`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-semibold">{p.project_name}</span>
