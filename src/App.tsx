@@ -4,7 +4,7 @@ import { Navbar } from './components/Navbar'
 import { users } from './data/users'
 import type { User } from './data/users'
 import { motion, AnimatePresence } from 'motion/react'
-import { XIcon, RefreshCwIcon, MessageSquareIcon, AlertTriangleIcon, ShieldAlertIcon, ClipboardListIcon } from 'lucide-react'
+import { XIcon, RefreshCwIcon, MessageSquareIcon, AlertTriangleIcon, ShieldAlertIcon, ClipboardListIcon, ExternalLinkIcon } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { listProjects, ping } from './api/client'
 import type { ProjectSummary } from './api/client'
@@ -14,8 +14,6 @@ import { SearchPage } from './components/SearchPage'
 import { useStandupCache } from './hooks/use-standup-cache'
 
 const SPRINT_ID = '0530dc38-0d6f-443c-89c7-c3b3c66698f1'
-const CACHE_KEY = 'projects_cache'
-const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 type ProjectHealth = 'green' | 'yellow' | 'red'
 type ProjectStatus = 'on-track' | 'at-risk' | 'behind'
@@ -58,11 +56,6 @@ const cardPositions = [
   // Left 1
   'top-1/2 -left-20 lg:-left-28 xl:-left-32 -translate-y-1/2',
 ]
-
-interface ProjectsCache {
-  data: ProjectSummary[]
-  fetchedAt: number
-}
 
 // ─── Standup section config ───────────────────────────────────────────────────
 const standupSections = [
@@ -201,11 +194,33 @@ function StandupPanel({
                   {items.length === 0 ? (
                     <p className="text-xs text-gray-400 italic">None</p>
                   ) : (
-                    <ul className="space-y-2.5">
+                    <ul className="space-y-3">
                       {items.map((item, i) => (
                         <li key={i} className="flex items-start gap-2">
-                          <span className={`mt-2 size-1.5 rounded-full shrink-0 ${section.dotColor}`} />
-                          <span className="text-s text-gray-700 leading-relaxed">{item}</span>
+                          <span className={`mt-1.5 size-1.5 rounded-full shrink-0 ${section.dotColor}`} />
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-gray-700 leading-relaxed">{item.summary}</span>
+                            {item.resources.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {item.resources.map((url, ri) => {
+                                  const ticketId = url.split('/').pop() ?? url
+                                  return (
+                                    <a
+                                      key={ri}
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${section.labelColor} border-current opacity-70 hover:opacity-100 transition-opacity`}
+                                    >
+                                      {ticketId}
+                                      <ExternalLinkIcon className="size-2.5 shrink-0" />
+                                    </a>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -218,30 +233,6 @@ function StandupPanel({
       )}
     </div>
   )
-}
-
-// ─── Projects cache helpers ────────────────────────────────────────────────────
-function getCachedProjects(): ProjectSummary[] | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const cache: ProjectsCache = JSON.parse(raw)
-    if (Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
-      return cache.data
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-function setCachedProjects(data: ProjectSummary[]) {
-  try {
-    const cache: ProjectsCache = { data, fetchedAt: Date.now() }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
-  } catch {
-    // ignore storage errors
-  }
 }
 
 function App() {
@@ -285,24 +276,26 @@ function App() {
     }
   }, [showSummary, showSearch, selectedUser])
 
-  const fetchProjects = async (forceRefresh = false) => {
-    if (!forceRefresh) {
-      const cached = getCachedProjects()
-      if (cached) {
-        setApiProjects(cached)
-        return
-      }
-    }
+  const fetchProjects = async () => {
     setProjectsLoading(true)
     setProjectsError(null)
     try {
+      const start = Date.now()
       const data = await listProjects(SPRINT_ID)
+      const elapsed = Date.now() - start
+      const remaining = Math.max(0, 2500 - elapsed)
+      if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining))
       setApiProjects(data)
-      setCachedProjects(data)
-    } catch (err) {
-      setProjectsError(err instanceof Error ? err.message : 'Failed to load projects')
-    } finally {
       setProjectsLoading(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load projects'
+      if (msg === '__PENDING__') {
+        // Still generating — poll every 5s
+        setTimeout(() => fetchProjects(), 5000)
+      } else {
+        setProjectsError(msg)
+        setProjectsLoading(false)
+      }
     }
   }
 
@@ -473,7 +466,7 @@ function App() {
                 <h2 className="text-lg font-semibold">Projects Summary</h2>
                 {!projectsLoading && (
                   <button
-                    onClick={() => fetchProjects(true)}
+                    onClick={() => fetchProjects()}
                     className="text-gray-400 hover:text-gray-600 cursor-pointer transition-colors"
                     title="Refresh"
                   >
@@ -500,7 +493,7 @@ function App() {
               {!projectsLoading && projectsError && (
                 <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                   <p className="text-sm text-red-500">{projectsError}</p>
-                  <Button variant="outline" onClick={() => fetchProjects(true)}>
+                  <Button variant="outline" onClick={() => fetchProjects()}>
                     <RefreshCwIcon className="size-4 mr-2" />
                     Retry
                   </Button>
@@ -510,11 +503,14 @@ function App() {
               {/* Projects grid */}
               {!projectsLoading && !projectsError && (
                 <div className="grid grid-cols-3 gap-4">
-                  {apiProjects.map(p => {
+                  {apiProjects.map((p, idx) => {
                     const status = healthToStatus[p.health] ?? 'on-track'
                     return (
-                      <div
+                      <motion.div
                         key={p.project_id}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, delay: idx * 0.1 }}
                         onClick={() => setSelectedProject(p)}
                         className={`rounded-xl border p-4 shadow-sm flex flex-col gap-3 cursor-pointer transition-shadow hover:shadow-md min-h-[200px] ${statusStyles[status]}`}
                       >
@@ -532,7 +528,7 @@ function App() {
                         </div>
                         <span className="text-[10px] opacity-60">{p.progress}% complete</span>
                         <p className="text-[11px] opacity-70 line-clamp-2 leading-relaxed">{p.summary}</p>
-                      </div>
+                      </motion.div>
                     )
                   })}
                 </div>
@@ -614,9 +610,19 @@ function App() {
                               <li key={sim.sim_id} className="flex items-start gap-3 text-sm p-2 rounded-lg bg-gray-50 border border-gray-100">
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-gray-700 truncate">{sim.title}</p>
-                                  <p className="text-[11px] text-gray-400 mt-0.5">
-                                    {sim.sim_id} · {sim.owner}
-                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <a
+                                      href={`https://issues.amazon.com/issues/${sim.sim_id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 transition-colors"
+                                    >
+                                      {sim.sim_id}
+                                      <ExternalLinkIcon className="size-2.5 shrink-0" />
+                                    </a>
+                                    <span className="text-[11px] text-gray-400">· {sim.owner}</span>
+                                  </div>
                                 </div>
                                 <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full ${
                                   sim.status.toLowerCase() === 'open'

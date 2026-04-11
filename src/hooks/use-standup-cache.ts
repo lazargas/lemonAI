@@ -2,13 +2,18 @@ import { useState, useEffect, useRef } from 'react'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
+export interface StandupItem {
+  summary: string
+  resources: string[]
+}
+
 export interface StandupCache {
   user_id: string
   sprint_id: string
-  suggested_talking_points: string[]
-  risks_to_mention: string[]
-  blockers: string[]
-  pending_items: string[]
+  suggested_talking_points: StandupItem[]
+  risks_to_mention: StandupItem[]
+  blockers: StandupItem[]
+  pending_items: StandupItem[]
   generated_at: string
   job_id: string
   status: 'pending' | 'completed' | 'failed'

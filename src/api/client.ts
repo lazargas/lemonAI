@@ -24,21 +24,41 @@ export interface ProjectSummary {
   developers: string[]
 }
 
-export interface ProjectsListResponse {
+export interface ProjectsCacheResponse {
   sprint_id: string
+  status: 'pending' | 'completed' | 'failed'
+  generated_at: string
+  job_id: string
+  error: string | null
   projects: ProjectSummary[]
 }
 
 export async function listProjects(sprintId: string): Promise<ProjectSummary[]> {
-  const res = await fetch(`${BASE_URL}/api/v1/projects?sprintId=${sprintId}`)
+  const res = await fetch(
+    `${BASE_URL}/api/v1/projects/cached?sprintId=${encodeURIComponent(sprintId)}`
+  )
   const text = await res.text()
+
+  if (res.status === 404) {
+    throw new Error('Projects not generated yet for this sprint.')
+  }
   if (!res.ok) {
     throw new Error(`Failed to fetch projects (${res.status}): ${text.slice(0, 200)}`)
   }
+
+  let data: ProjectsCacheResponse
   try {
-    const data: ProjectsListResponse = JSON.parse(text)
-    return data.projects
+    data = JSON.parse(text)
   } catch {
     throw new Error(`Invalid JSON response from server: ${text.slice(0, 200)}`)
   }
+
+  if (data.status === 'pending') {
+    throw new Error('__PENDING__')
+  }
+  if (data.status === 'failed') {
+    throw new Error(data.error ?? 'Project generation failed.')
+  }
+
+  return data.projects
 }
