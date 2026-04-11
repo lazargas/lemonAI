@@ -78,7 +78,7 @@ function App() {
       <Navbar />
       <div
         ref={containerRef}
-        className="relative flex items-center justify-center h-[calc(100vh-73px)] bg-gray-200 overflow-hidden"
+        className="relative flex items-center justify-center h-[calc(100vh-73px)] bg-white overflow-hidden"
         onClick={() => selectedUser && setSelectedUser(null)}
       >
         <motion.div
