@@ -321,7 +321,7 @@ function App() {
                     dotLottieRefCallback={handleLottieRef}
                     style={{ width: 160, height: 160 }}
                   />
-                  <p className="text-sm text-gray-400">Loading projects…</p>
+                  <p className="text-sm text-gray-400">Generating Summary</p>
                 </div>
               )}
 
