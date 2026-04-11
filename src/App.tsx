@@ -4,14 +4,14 @@ import { Navbar } from './components/Navbar'
 import { users } from './data/users'
 import type { User } from './data/users'
 import { motion, AnimatePresence } from 'motion/react'
-import { XIcon, RefreshCwIcon } from 'lucide-react'
-import { Progress, ProgressValue } from './components/ui/progress'
+import { XIcon, RefreshCwIcon, MessageSquareIcon, AlertTriangleIcon, ShieldAlertIcon, ClipboardListIcon } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { listProjects, ping } from './api/client'
 import type { ProjectSummary } from './api/client'
 import { DotLottieReact, type DotLottie } from '@lottiefiles/dotlottie-react'
 import sparklesLottie from '@/assets/Sparkles Loop Loader ai.lottie?url'
 import { SearchPage } from './components/SearchPage'
+import { useStandupCache } from './hooks/use-standup-cache'
 
 const SPRINT_ID = '0530dc38-0d6f-443c-89c7-c3b3c66698f1'
 const CACHE_KEY = 'projects_cache'
@@ -64,6 +64,163 @@ interface ProjectsCache {
   fetchedAt: number
 }
 
+// ─── Standup section config ───────────────────────────────────────────────────
+const standupSections = [
+  {
+    key: 'suggested_talking_points' as const,
+    label: 'Talking Points',
+    Icon: MessageSquareIcon,
+    bg: 'bg-[#EEF4FF] border-[#C7D9FF]',
+    labelColor: 'text-[#3B6FD4]',
+    iconColor: 'text-[#7AAAF7]',
+    dotColor: 'bg-[#7AAAF7]',
+  },
+  {
+    key: 'risks_to_mention' as const,
+    label: 'Risks',
+    Icon: AlertTriangleIcon,
+    bg: 'bg-[#FFFBEB] border-[#FDEAAA]',
+    labelColor: 'text-[#B07D1A]',
+    iconColor: 'text-[#F0C060]',
+    dotColor: 'bg-[#F0C060]',
+  },
+  {
+    key: 'blockers' as const,
+    label: 'Blockers',
+    Icon: ShieldAlertIcon,
+    bg: 'bg-[#FFF3F3] border-[#FCCFCF]',
+    labelColor: 'text-[#C0444A]',
+    iconColor: 'text-[#F09090]',
+    dotColor: 'bg-[#F09090]',
+  },
+  {
+    key: 'pending_items' as const,
+    label: 'Pending Items',
+    Icon: ClipboardListIcon,
+    bg: 'bg-[#F5F0FF] border-[#DDD0FF]',
+    labelColor: 'text-[#6B44C0]',
+    iconColor: 'text-[#B09AE8]',
+    dotColor: 'bg-[#B09AE8]',
+  },
+]
+
+const STANDUP_ARTIFICIAL_DELAY_MS = 2000
+
+function StandupPanel({
+  user,
+  sprintId,
+  handleLottieRef,
+}: {
+  user: User
+  sprintId: string
+  handleLottieRef: (d: DotLottie | null) => void
+}) {
+  const { data, loading, error } = useStandupCache(user.alias, sprintId)
+  const [delayDone, setDelayDone] = useState(false)
+
+  // 3-second artificial delay so the loader always shows briefly
+  useEffect(() => {
+    setDelayDone(false)
+    const t = setTimeout(() => setDelayDone(true), STANDUP_ARTIFICIAL_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [user.alias])
+
+  const showLoader = loading || !delayDone
+
+  const isLoading = showLoader || (!!data && data.status === 'pending')
+  const isFailed = !showLoader && (!!error || (!!data && data.status === 'failed'))
+  const isReady = !showLoader && !!data && data.status === 'completed'
+
+  return (
+    <div className="flex-1 overflow-auto flex flex-col gap-3 bg-white rounded-xl border border-gray-200 shadow-md py-[32px] px-[16px] ">
+
+      {/* ── Loading state ── */}
+      {isLoading && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+          <DotLottieReact
+            src={sparklesLottie}
+            loop
+            autoplay
+            dotLottieRefCallback={handleLottieRef}
+            style={{ width: 140, height: 140 }}
+          />
+          <p className="text-sm text-gray-400">Generating standup for {user.name}…</p>
+        </div>
+      )}
+
+      {/* ── Error state ── */}
+      {isFailed && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+          <p className="text-sm text-red-400 text-center">
+            {error ?? (data?.error ? `Generation failed: ${data.error}` : 'No standup data available.')}
+          </p>
+        </div>
+      )}
+
+      {/* ── Ready state ── */}
+      {isReady && (
+        <>
+          {/* User header */}
+          <div className="flex items-center gap-3 px-1">
+            {user.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-10 h-10 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-semibold shrink-0">
+                {user.name.split(' ').map(n => n[0]).join('')}
+              </div>
+            )}
+            <div className="flex flex-col">
+              <span className="text-base font-semibold text-gray-800 leading-tight">{user.name}</span>
+              <span className="text-xs text-gray-400">@{user.alias}</span>
+            </div>
+            <span className="ml-auto text-xs text-gray-300">
+              {new Date(data.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+
+          {/* 4 colored boxes — staggered fade-in, 2 cols on xl */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            {standupSections.map((section, idx) => {
+              const items = data[section.key]
+              return (
+                <motion.div
+                  key={section.key}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: idx * 0.15 }}
+                  className={` border p-4 flex flex-col gap-3 h-[350px] w-full max-w-[600px] overflow-auto ${section.bg}`}
+                >
+                  <div className={`flex items-center gap-2 ${section.labelColor}`}>
+                    <section.Icon className={`size-4 ${section.iconColor}`} />
+                    <span className="text-xl font-semibold uppercase tracking-wide">{section.label}</span>
+                  </div>
+                  {items.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">None</p>
+                  ) : (
+                    <ul className="space-y-2.5">
+                      {items.map((item, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className={`mt-2 size-1.5 rounded-full shrink-0 ${section.dotColor}`} />
+                          <span className="text-s text-gray-700 leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Projects cache helpers ────────────────────────────────────────────────────
 function getCachedProjects(): ProjectSummary[] | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
@@ -88,7 +245,13 @@ function setCachedProjects(data: ProjectSummary[]) {
 }
 
 function App() {
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const getInitialUser = () => {
+    const params = new URLSearchParams(window.location.search)
+    const alias = params.get('user')
+    return alias ? (users.find(u => u.alias === alias) ?? null) : null
+  }
+
+  const [selectedUser, setSelectedUser] = useState<User | null>(getInitialUser)
   const [showSummary, setShowSummary] = useState(
     () => window.location.search.includes('projects')
   )
@@ -109,16 +272,18 @@ function App() {
       .catch(err => console.error('Ping error:', err))
   }, [])
 
-  // Sync URL params with page state
+  // Sync URL params with page state (including ?user=alias)
   useEffect(() => {
     if (showSearch) {
       window.history.replaceState(null, '', '?search')
     } else if (showSummary) {
       window.history.replaceState(null, '', '?projects')
+    } else if (selectedUser) {
+      window.history.replaceState(null, '', `?user=${selectedUser.alias}`)
     } else {
       window.history.replaceState(null, '', window.location.pathname)
     }
-  }, [showSummary, showSearch])
+  }, [showSummary, showSearch, selectedUser])
 
   const fetchProjects = async (forceRefresh = false) => {
     if (!forceRefresh) {
@@ -229,7 +394,7 @@ function App() {
         <AnimatePresence>
           {selectedUser && (
             <motion.div
-              className="absolute right-0 top-0 h-full w-[50%] lg:w-[45%] xl:w-[40%] flex flex-col gap-4 p-4"
+              className="absolute right-0 top-0 h-full w-[60vw] flex flex-col gap-4 p-4"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -245,37 +410,36 @@ function App() {
 
               {selectedUser.isManager ? (
                 <div className="flex-1 bg-white rounded-xl shadow-lg p-4 lg:p-6 overflow-auto">
-                  <h2 className="text-base lg:text-lg font-semibold mb-4">Team Progress</h2>
+                  <h2 className="text-base lg:text-lg font-semibold mb-4">Team Members</h2>
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                     {users.filter(u => !u.isManager).map(u => (
-                      <div key={u.id} className="flex flex-col items-center gap-2 p-3 rounded-lg border border-gray-100 bg-gray-50">
-                        <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-lg font-semibold">
-                          {u.name.charAt(5)}
-                        </div>
+                      <motion.div
+                        key={u.id}
+                        whileHover={{ y: -2, boxShadow: '0 8px 16px -4px rgba(0,0,0,.08)' }}
+                        transition={{ duration: 0.2 }}
+                        onClick={() => setSelectedUser(u)}
+                        className="flex flex-col items-center gap-2 p-3 rounded-lg border border-gray-100 bg-gray-50 cursor-pointer"
+                      >
+                        {u.avatar ? (
+                          <img
+                            src={u.avatar}
+                            alt={u.name}
+                            className="w-12 h-12 lg:w-14 lg:h-14 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-lg font-semibold">
+                            {u.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                        )}
                         <span className="text-xs lg:text-sm font-medium text-gray-700 text-center truncate w-full">{u.name}</span>
-                        <Progress value={0} className="w-full">
-                          <ProgressValue />
-                        </Progress>
-                      </div>
+                        <span className="text-[10px] text-gray-400 text-center truncate w-full">{u.jobTitle}</span>
+                        <span className="text-[10px] text-blue-500 font-medium">View standup →</span>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="flex-1 bg-white rounded-xl shadow-lg p-4 lg:p-6 overflow-auto">
-                    <h2 className="text-base lg:text-lg font-semibold mb-4">User Details</h2>
-                    <div className="space-y-3 text-xs lg:text-sm text-gray-600">
-                      <p><span className="font-medium text-gray-800">Name:</span> {selectedUser.name}</p>
-                      <p><span className="font-medium text-gray-800">Job Title:</span> {selectedUser.jobTitle}</p>
-                      <p><span className="font-medium text-gray-800">City:</span> {selectedUser.city}</p>
-                      <p><span className="font-medium text-gray-800">ID:</span> {selectedUser.id}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 bg-white rounded-xl shadow-lg p-4 lg:p-6 flex items-center justify-center">
-                    <span className="text-gray-400 text-xs lg:text-sm">Placeholder</span>
-                  </div>
-                </>
+                <StandupPanel user={selectedUser} sprintId={SPRINT_ID} handleLottieRef={handleLottieRef} />
               )}
             </motion.div>
           )}

@@ -12,18 +12,19 @@ export interface User {
   name: string
   jobTitle: string
   city: string
+  alias: string
   isManager?: boolean
   avatar?: string
 }
 
 export const users: User[] = [
-  { id: 1, name: "User Alpha", jobTitle: "Software Development Manager", city: "City A", avatar: user1Img },
-  { id: 2, name: "User Beta", jobTitle: "Sr Mgr, Supply Chain Mgmt", city: "City B", avatar: user2Img },
-  { id: 3, name: "User Gamma", jobTitle: "Software Development Manager", city: "City A", avatar: user3Img },
-  { id: 4, name: "User Delta", jobTitle: "SDE II", city: "City A", avatar: user4Img },
-  { id: 5, name: "User Epsilon", jobTitle: "Software Dev Engineer I", city: "City A", avatar: user5Img },
-  { id: 6, name: "User Zeta", jobTitle: "Software Dev Engineer", city: "City A", avatar: user6Img },
-  { id: 7, name: "User Eta", jobTitle: "SDE I", city: "City A", avatar: user7Img },
-  { id: 8, name: "User Theta", jobTitle: "Programmer Analyst I", city: "City A", avatar: user8Img },
-  { id: 9, name: "User Iota", jobTitle: "Manager", city: "City A", isManager: true },
+  { id: 1, name: "Piyush Bansal",   jobTitle: "SDE-1", city: "Chandigarh", alias: "pibansal",   avatar: user1Img },
+  { id: 2, name: "Vaishnavi Bhattaru",    jobTitle: "PA-1",    city: "Hyderabad", alias: "bspvaish",    avatar: user2Img },
+  { id: 3, name: "Niharika Walia",   jobTitle: "UX-1", city: "Ambala", alias: "niwalia",   avatar: user3Img },
+  { id: 4, name: "Aman Advani",   jobTitle: "PA-1",                       city: "Kanpur", alias: "advaniam",   avatar: user4Img },
+  { id: 5, name: "Valentina Roy", jobTitle: "SDE-1",      city: "Kolkata", alias: "valroy", avatar: user5Img },
+  { id: 6, name: "Meghana Kasireddy",    jobTitle: "SDE-1",        city: "Hyderabad", alias: "mkasired",    avatar: user6Img },
+  { id: 7, name: "Chaitanya Sharma ",     jobTitle: "PA-1",                        city: "Gwalior", alias: "sharchai",     avatar: user7Img },
+  { id: 8, name: "Arkoprovo Datta",   jobTitle: "PA-1",         city: "Kolkata", alias: "arkodatt",   avatar: user8Img },
+  { id: 9, name: "Manoj Kumar Vallamkondu",    jobTitle: "Manager",                      city: "Hyderabad", alias: "valmanoj",    isManager: true },
 ]
