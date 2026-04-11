@@ -11,6 +11,7 @@ import { listProjects, ping } from './api/client'
 import type { ProjectSummary } from './api/client'
 import { DotLottieReact, type DotLottie } from '@lottiefiles/dotlottie-react'
 import sparklesLottie from '@/assets/Sparkles Loop Loader ai.lottie?url'
+import { SearchPage } from './components/SearchPage'
 
 const SPRINT_ID = '0530dc38-0d6f-443c-89c7-c3b3c66698f1'
 const CACHE_KEY = 'projects_cache'
@@ -91,6 +92,9 @@ function App() {
   const [showSummary, setShowSummary] = useState(
     () => window.location.search.includes('projects')
   )
+  const [showSearch, setShowSearch] = useState(
+    () => window.location.search.includes('search')
+  )
   const [zoomOrigin, setZoomOrigin] = useState({ x: '50%', y: '50%' })
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -105,14 +109,16 @@ function App() {
       .catch(err => console.error('Ping error:', err))
   }, [])
 
-  // Sync ?projects query param with summary page state
+  // Sync URL params with page state
   useEffect(() => {
-    if (showSummary) {
+    if (showSearch) {
+      window.history.replaceState(null, '', '?search')
+    } else if (showSummary) {
       window.history.replaceState(null, '', '?projects')
     } else {
       window.history.replaceState(null, '', window.location.pathname)
     }
-  }, [showSummary])
+  }, [showSummary, showSearch])
 
   const fetchProjects = async (forceRefresh = false) => {
     if (!forceRefresh) {
@@ -167,8 +173,10 @@ function App() {
   return (
     <div className="h-screen overflow-hidden">
       <Navbar
-        onLeadershipDashboard={() => setShowSummary(prev => !prev)}
+        onLeadershipDashboard={() => { setShowSearch(false); setShowSummary(prev => !prev) }}
         isLeadershipView={showSummary}
+        onSearch={() => { setShowSummary(false); setShowSearch(prev => !prev) }}
+        isSearchView={showSearch}
       />
       <div
         ref={containerRef}
@@ -270,6 +278,13 @@ function App() {
                 </>
               )}
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Search page */}
+        <AnimatePresence>
+          {showSearch && (
+            <SearchPage onClose={() => setShowSearch(false)} />
           )}
         </AnimatePresence>
 
